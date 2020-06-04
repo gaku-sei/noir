@@ -7,3 +7,5 @@ let make x = Serializable x
 let fromString = make
 
 let fromStatus = fromString <<< Http.Status.toMessage
+
+let fromJson = fromString <<< Js.Json.stringify

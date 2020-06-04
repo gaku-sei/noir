@@ -1,24 +1,28 @@
+open Core.Infix
 open Noir
 
+type homePayload = { hello : string }
+
+let homePayloadToJson { hello } =
+  Js.Json.object_ @@ Js.Dict.fromArray [| ("Hello ", Js.Json.string hello) |]
+
+let homePipe = json @@ homePayloadToJson { hello = "world" }
+
 let home =
-  route ""
-  >=> setHeader "X-Powered-By" "Noir"
-  >=> setContentType `json
-  >=> setStatus `ok
-  >=> text "{\"hello\": \"idp\"}"
+  route "" >=> setHeader "X-Powered-By" "Noir" >=> setStatus `ok >=> homePipe
 
 let hello =
   namespace "hello"
   >=> ( route "noir"
       >=> setHeader "X-Powered-By" "Noir"
-      >=> text "Hello Noir!!"
-      <|> (route "unknown" >=> text "Hello?") )
+      >=> text "Say hello to Noir!!"
+      <|> capture (text <<< ( ^ ) "Say hello to ") )
 
-let noContent = route "no-content" >=> setStatus `noContent
+let noContent = route "no-content" >=> status `noContent
 
 let something =
-  route "something" >=> setHeader "Something" "Else" >=> text "Hello!"
+  route "something" >=> setHeader "Something" "Else" >=> text "Something here"
 
-let pipeline = home <|> hello <|> something <|> noContent
+let pipeline = home <|> noContent <|> something <|> hello
 
 let () = run ~adapter:(module NativeAdapter) pipeline
