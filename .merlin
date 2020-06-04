@@ -1,0 +1,12 @@
+####{BSB GENERATED: NO EDIT
+B lib/bs
+FLG -open Noir
+FLG -ppx '/Users/japanck/own/noir/node_modules/bs-platform/darwin/bsc.exe -as-ppx -bs-jsx 3'
+S /Users/japanck/own/noir/node_modules/bs-platform/lib/ocaml
+B /Users/japanck/own/noir/node_modules/bs-platform/lib/ocaml
+FLG -w +a-4-9-20-40-41-42-50-61-102-48
+S example
+B lib/bs/example
+S src
+B lib/bs/src
+####BSB GENERATED: NO EDIT}

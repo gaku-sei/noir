@@ -1,0 +1,9 @@
+{
+  "name": "noir",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "devDependencies": {
+    "bs-platform": "^7.3.2"
+  }
+}

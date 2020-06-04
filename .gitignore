@@ -1,0 +1,5 @@
+**/*.bs.js
+lib
+node_modules
+.vscode
+.bsb.lock
