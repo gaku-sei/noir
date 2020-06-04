@@ -1,37 +1,70 @@
 open Core.Infix
 
-type t = Context.t -> Context.t Js.Promise.t
+type kind = Sync of Context.t option | Async of Context.t Js.Promise.t
+
+type t = Context.t -> kind
+
+exception PipeError
 
 module Infix = struct
   (* Kleisli composition *)
-  let ( >=> ) (a : t) (b : t) (ctx : Context.t) = a ctx |> Js.Promise.then_ b
+  let ( >=> ) (a : t) (b : t) : t =
+   fun ctx ->
+    match a ctx with
+    | Sync (Some ctx) -> b ctx
+    | Sync None as none -> none
+    | Async promise ->
+        Async
+          ( promise
+          |> Js.Promise.then_ (fun ctx ->
+                 match b ctx with
+                 | Sync (Some ctx) -> Js.Promise.resolve ctx
+                 | Sync None -> Js.Promise.reject PipeError
+                 | Async promise -> promise) )
 
   (* Alt operator *)
-  let ( <|> ) (a : t) (b : t) (ctx : Context.t) =
-    a ctx |> Js.Promise.catch (fun _ -> b ctx)
+  let ( <|> ) (a : t) (b : t) : t =
+   fun ctx ->
+    match a ctx with
+    | Sync (Some ctx) -> Sync (Some ctx)
+    | Sync None -> b ctx
+    | Async promise ->
+        Async
+          ( promise
+          |> Js.Promise.catch (fun _ ->
+                 match b ctx with
+                 | Sync (Some ctx) -> Js.Promise.resolve ctx
+                 | Sync None -> Js.Promise.reject PipeError
+                 | Async promise -> promise) )
 end
 
+let sync ctx = Sync ctx
+
+let async ctx = Async ctx
+
+let ok f ctx = sync @@ Some (f ctx)
+
 let setContentType =
-  Context.ok <<< Context.mapResponse <<< Response.mapHeaders
+  ok <<< Context.mapResponse <<< Response.mapHeaders
   <<< Headers.set "Content-Type" <<< Http.ContentType.show
 
-let setStatus = Context.ok <<< Context.mapResponse <<< Response.setStatus
+let setStatus = ok <<< Context.mapResponse <<< Response.setStatus
 
 let setHeader key =
-  Context.ok <<< Context.mapResponse <<< Response.mapHeaders <<< Headers.set key
+  ok <<< Context.mapResponse <<< Response.mapHeaders <<< Headers.set key
 
-let setHeaders = Context.ok <<< Context.mapResponse <<< Response.setHeaders
+let setHeaders = ok <<< Context.mapResponse <<< Response.setHeaders
 
 let text body =
-  Context.ok @@ Context.mapResponse @@ Response.setBody
+  ok @@ Context.mapResponse @@ Response.setBody
   @@ Some (Serializable.fromString body)
 
 let namespace pathName =
-  Context.ok @@ Context.mapMeta @@ Meta.mapCurrentNamespace
+  ok @@ Context.mapMeta @@ Meta.mapCurrentNamespace
   @@ fun currentNamespace -> currentNamespace ^ "/" ^ pathName
 
 let route pathName : t =
  fun ctx ->
   if ctx.meta.currentNamespace ^ "/" ^ pathName = ctx.request.pathName then
-    Js.Promise.resolve ctx
-  else Js.Promise.reject Exceptions.RouteNotMatched
+    sync @@ Some ctx
+  else sync None
