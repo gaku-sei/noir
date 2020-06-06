@@ -104,13 +104,32 @@ let namespace pathName : t =
       ctx
   else sync None
 
+let%private handlePayload f decodedBody : t =
+ fun ctx ->
+  match decodedBody with
+  | Ok payload -> (
+      match f payload ctx with
+      | Sync (Some ctx) -> sync @@ Some ctx
+      | Sync None -> sync None
+      | Async promise -> async promise )
+  | Error errors ->
+      sync
+      @@ Some
+           ( Context.mapResponse (Response.setStatus `badRequest)
+           @@ Context.mapResponse (Response.setBody errors) ctx )
+
 let payload decode f : t =
  fun ({ request = { body } } as ctx) ->
   match body with
   | None -> setStatus `badRequest ctx
-  | Some body ->
+  | Some (String body) -> (handlePayload f @@ decode body) ctx
+  | Some (Buffer body) ->
+      ( handlePayload f @@ decode
+      @@ Bindings.Node.Buffer.toStringWithEncoding body `utf8 )
+        ctx
+  | Some (Stream body) ->
       async
-        ( Serializable.toString body
+        ( Bindings.Node.Stream.Readable.consume body
         |> Js.Promise.then_ (fun body ->
                match decode body with
                | Error errors ->

@@ -5,7 +5,7 @@ type t =
 
 let fromString string = String string
 
-let fromReadableStream stream = Stream stream
+let fromStream stream = Stream stream
 
 let fromBuffer buffer = Buffer buffer
 
@@ -17,10 +17,3 @@ let length = function
   | String string -> Some (Js.String.length string)
   | Stream _ -> None
   | Buffer buffer -> Some (Bindings.Node.Buffer.length buffer)
-
-let toString = function
-  | String string -> Js.Promise.resolve string
-  | Stream stream -> Bindings.Node.Stream.Readable.consume stream
-  | Buffer buffer ->
-      Js.Promise.resolve
-      @@ Bindings.Node.Buffer.toStringWithEncoding buffer `utf8

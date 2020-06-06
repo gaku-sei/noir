@@ -44,7 +44,7 @@ let listen f =
     createServer' @@ fun ({ headers; url; verb } as request) response ->
     f
       (Request.make
-         ~body:(Serializable.fromReadableStream @@ requestToStream request)
+         ~body:(Serializable.fromStream @@ requestToStream request)
          ~headers ~pathName:url ~url ~verb:(readVerb verb) ())
     |> Js.Promise.then_ (fun ({ body; headers; status } : Response.t) ->
            (* Set status *)
@@ -54,10 +54,14 @@ let listen f =
            headers |> Js.Dict.entries
            |> Js.Array.forEach (fun (key, value) ->
                   setHeader response key value);
-           (* FIXME: Should disambiguate strings, streams, and buffers *)
-           Serializable.toString
-           @@ Belt.Option.getWithDefault body
-           @@ Serializable.fromStatus status)
+           match body with
+           | None -> Js.Promise.resolve @@ Http.Status.toMessage status
+           | Some (String string) -> Js.Promise.resolve string
+           | Some (Buffer buffer) ->
+               Js.Promise.resolve
+               @@ Bindings.Node.Buffer.toStringWithEncoding buffer `utf8
+           | Some (Stream stream) ->
+               Bindings.Node.Stream.Readable.consume stream)
     |> Js.Promise.then_ (fun body ->
            (* Write response content *)
            write response body;
