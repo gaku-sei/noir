@@ -4,8 +4,9 @@ type t = {
   headers : Headers.t;
   pathName : string;
   url : string;
+  verb : Http.Verb.t;
 }
 [@@bs.deriving accessors]
 
-let make ?(headers = Js.Dict.empty ()) ?body ~pathName ~url () =
-  { body; headers; pathName; url }
+let make ?(headers = Js.Dict.empty ()) ?body ~pathName ~url ~verb () =
+  { body; headers; pathName; url; verb }

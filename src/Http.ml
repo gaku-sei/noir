@@ -19,3 +19,16 @@ module ContentType = struct
     | `json -> "application/json"
     | `text -> "text/html"
 end
+
+module Verb = struct
+  type t =
+    [ `head
+    | `options
+    | `trace
+    | `connect
+    | `get
+    | `post
+    | `put
+    | `delete
+    | `patch ]
+end

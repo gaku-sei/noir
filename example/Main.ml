@@ -6,10 +6,11 @@ type homePayload = { hello : string }
 let homePayloadToJson { hello } =
   Js.Json.object_ @@ Js.Dict.fromArray [| ("Hello ", Js.Json.string hello) |]
 
-let homePipe = json @@ homePayloadToJson { hello = "world" }
-
 let home =
-  route "" >=> setHeader "X-Powered-By" "Noir" >=> setStatus `ok >=> homePipe
+  route ""
+  >=> setHeader "X-Powered-By" "Noir"
+  >=> setStatus `ok
+  >=> json @@ homePayloadToJson { hello = "world" }
 
 let hello =
   namespace "hello"
@@ -23,6 +24,8 @@ let noContent = route "no-content" >=> status `noContent
 let something =
   route "something" >=> setHeader "Something" "Else" >=> text "Something here"
 
-let pipeline = home <|> noContent <|> something <|> hello
+let withPayload = route "with-payload" >=> verb `post >=> text "I heard you"
+
+let pipeline = home <|> noContent <|> something <|> hello <|> withPayload
 
 let () = run ~adapter:(module NativeAdapter) pipeline

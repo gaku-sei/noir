@@ -46,6 +46,17 @@ let async ctx = Async ctx
 
 let ok f ctx = sync @@ Some (f ctx)
 
+let%private respondWith = ok <<< Context.mapResponse <<< Response.setBody
+
+let%private guard f : t = fun ctx -> sync @@ if f ctx then Some ctx else None
+
+let%private currentPathPart
+    ({ request = { pathName }; meta = { currentNamespace } } : Context.t) =
+  let from = Js.String.length currentNamespace + 1 in
+  let to_ = pathName |> Js.String.indexOfFrom "/" from in
+  Js.String.substring pathName ~from
+    ~to_:(if to_ < 0 then Js.String.length pathName else to_)
+
 let setContentType =
   ok <<< Context.mapResponse <<< Response.mapHeaders
   <<< Headers.set "Content-Type" <<< Http.ContentType.show
@@ -57,8 +68,6 @@ let setHeader key =
 
 let setHeaders = ok <<< Context.mapResponse <<< Response.setHeaders
 
-let%private respondWith = ok <<< Context.mapResponse <<< Response.setBody
-
 let text text =
   setContentType `text >=> respondWith @@ Serializable.fromString text
 
@@ -67,13 +76,6 @@ let status status =
 
 let json json =
   setContentType `json >=> respondWith @@ Serializable.fromJson json
-
-let%private currentPathPart
-    ({ request = { pathName }; meta = { currentNamespace } } : Context.t) =
-  let from = Js.String.length currentNamespace + 1 in
-  let to_ = pathName |> Js.String.indexOfFrom "/" from in
-  Js.String.substring pathName ~from
-    ~to_:(if to_ < 0 then Js.String.length pathName else to_)
 
 let namespace pathName ctx =
   if currentPathPart ctx = pathName then
@@ -84,8 +86,8 @@ let namespace pathName ctx =
 
 let capture f : t = fun ctx -> f (currentPathPart ctx) ctx
 
+let verb verb : t = guard (fun ctx -> ctx.request.verb = verb)
+
 let route pathName : t =
- fun ctx ->
-  if ctx.meta.currentNamespace ^ "/" ^ pathName = ctx.request.pathName then
-    sync @@ Some ctx
-  else sync None
+  guard (fun ctx ->
+      ctx.meta.currentNamespace ^ "/" ^ pathName = ctx.request.pathName)
