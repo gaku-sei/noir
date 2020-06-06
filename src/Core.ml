@@ -1,10 +1,10 @@
 include Pipe
 include Pipe.Infix
 
-let run ~adapter pipeline =
+let run ~adapter ~config pipeline =
   let module Adapter = (val adapter : Adapter.Type) in
   Adapter.listen @@ fun request ->
-  match pipeline @@ Context.make ~request ~response:Response.empty with
+  match pipeline @@ Context.make ~request ~response:Response.empty ~config with
   | Sync (Some { Context.response }) -> Js.Promise.resolve response
   | Sync None -> Js.Promise.resolve Response.notFound
   | Async promise ->
