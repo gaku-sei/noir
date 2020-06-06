@@ -1,16 +1,21 @@
-open Core.Infix
-open Noir
+open Util.Infix
+open Core
 
-type homePayload = { hello : string }
+type homePayload = { hello : string } [@@decco.encode]
 
-let homePayloadToJson { hello } =
-  Js.Json.object_ @@ Js.Dict.fromArray [| ("Hello ", Js.Json.string hello) |]
+type payload = { name : string; age : int } [@@decco.decode]
+
+let decodeWith decoder =
+  Js.Json.parseExn >>> decoder >>> function
+  | Ok ok -> Ok ok
+  | Error { Decco.message; path } ->
+      Error (Serializable.fromString @@ path ^ " error: " ^ message)
 
 let home =
   route ""
   >=> setHeader "X-Powered-By" "Noir"
   >=> setStatus `ok
-  >=> json @@ homePayloadToJson { hello = "world" }
+  >=> json @@ homePayload_encode { hello = "world" }
 
 let hello =
   namespace "hello"
@@ -24,7 +29,11 @@ let noContent = route "no-content" >=> status `noContent
 let something =
   route "something" >=> setHeader "Something" "Else" >=> text "Something here"
 
-let withPayload = route "with-payload" >=> verb `post >=> text "I heard you"
+let withPayload =
+  route "with-payload"
+  >=> verb `post
+  >=> payload (decodeWith payload_decode) (fun { age; name } ->
+          text @@ "Seems " ^ name ^ " is " ^ string_of_int age ^ " years old")
 
 let pipeline = home <|> noContent <|> something <|> hello <|> withPayload
 

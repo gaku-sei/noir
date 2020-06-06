@@ -1,4 +1,4 @@
-open Core.Infix
+open Util.Infix
 
 type kind = Sync of Context.t option | Async of Context.t Js.Promise.t
 
@@ -61,6 +61,10 @@ let setContentType =
   ok <<< Context.mapResponse <<< Response.mapHeaders
   <<< Headers.set "Content-Type" <<< Http.ContentType.show
 
+let setContentLength =
+  ok <<< Context.mapResponse <<< Response.mapHeaders
+  <<< Headers.set "Content-Length"
+
 let setStatus = ok <<< Context.mapResponse <<< Response.setStatus
 
 let setHeader key =
@@ -68,21 +72,78 @@ let setHeader key =
 
 let setHeaders = ok <<< Context.mapResponse <<< Response.setHeaders
 
-let text text =
-  setContentType `text >=> respondWith @@ Serializable.fromString text
+let option pipe option : t =
+  match option with
+  | None -> fun ctx -> sync @@ Some ctx
+  | Some x -> fun ctx -> pipe x ctx
 
-let status status =
-  setStatus status >=> respondWith @@ Serializable.fromStatus status
+let text text : t =
+  setContentType `text
+  >=> setContentLength (string_of_int @@ Js.String.length text)
+  >=> respondWith @@ Serializable.fromString text
 
-let json json =
-  setContentType `json >=> respondWith @@ Serializable.fromJson json
+let status status : t =
+  setStatus status
+  >=> option
+        (setContentLength <<< string_of_int)
+        (Serializable.length @@ Serializable.fromStatus status)
+  >=> respondWith @@ Serializable.fromStatus status
 
-let namespace pathName ctx =
+let json json : t =
+  setContentType `json
+  >=> option
+        (setContentLength <<< string_of_int)
+        (Serializable.length @@ Serializable.fromJson json)
+  >=> respondWith @@ Serializable.fromJson json
+
+let namespace pathName : t =
+ fun ctx ->
   if currentPathPart ctx = pathName then
     ( ok @@ Context.mapMeta @@ Meta.mapCurrentNamespace
     @@ fun currentNamespace -> currentNamespace ^ "/" ^ pathName )
       ctx
   else sync None
+
+let%private handlePayload f decodedBody : t =
+ fun ctx ->
+  match decodedBody with
+  | Ok payload -> (
+      match f payload ctx with
+      | Sync (Some ctx) -> sync @@ Some ctx
+      | Sync None -> sync None
+      | Async promise -> async promise )
+  | Error errors ->
+      sync
+      @@ Some
+           ( Context.mapResponse (Response.setStatus `badRequest)
+           @@ Context.mapResponse (Response.setBody errors) ctx )
+
+let payload decode f : t =
+ fun ({ request = { body } } as ctx) ->
+  match body with
+  | None -> setStatus `badRequest ctx
+  | Some (String body) -> (handlePayload f @@ decode body) ctx
+  | Some (Buffer body) ->
+      ( handlePayload f @@ decode
+      @@ Bindings.Node.Buffer.toStringWithEncoding body `utf8 )
+        ctx
+  | Some (Stream body) ->
+      async
+        ( Bindings.Node.Stream.Readable.consume body
+        |> Js.Promise.then_ (fun body ->
+               match decode body with
+               | Error errors ->
+                   Js.Promise.resolve
+                   @@ Context.mapResponse (Response.setStatus `badRequest)
+                   @@ Context.mapResponse (Response.setBody errors) ctx
+               | Ok payload -> (
+                   match f payload ctx with
+                   | Sync (Some ctx) -> Js.Promise.resolve ctx
+                   | Sync None -> Js.Promise.reject PipeError
+                   | Async promise -> promise ))
+        |> Js.Promise.catch (fun _ ->
+               Js.Promise.resolve
+               @@ Context.mapResponse (Response.setStatus `badRequest) ctx) )
 
 let capture f : t = fun ctx -> f (currentPathPart ctx) ctx
 
