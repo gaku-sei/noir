@@ -1,5 +1,11 @@
 module Node = struct
-  include Node
+  include (Node : module type of Node with module Buffer := Node.Buffer)
+
+  module Buffer = struct
+    include Node.Buffer
+
+    external length : t -> int = "length" [@@bs.get]
+  end
 
   module Stream = struct
     module Readable = struct

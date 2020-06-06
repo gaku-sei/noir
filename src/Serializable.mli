@@ -10,4 +10,6 @@ val fromStatus : Http.Status.t -> t
 
 val fromJson : Js.Json.t -> t
 
+val length : t -> int option
+
 val toString : t -> string Js.Promise.t

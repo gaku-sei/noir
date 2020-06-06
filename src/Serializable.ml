@@ -13,6 +13,11 @@ let fromStatus status = fromString @@ Http.Status.toMessage status
 
 let fromJson json = fromString @@ Js.Json.stringify json
 
+let length = function
+  | String string -> Some (Js.String.length string)
+  | Stream _ -> None
+  | Buffer buffer -> Some (Bindings.Node.Buffer.length buffer)
+
 let toString = function
   | String string -> Js.Promise.resolve string
   | Stream stream -> Bindings.Node.Stream.Readable.consume stream

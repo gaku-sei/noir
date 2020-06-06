@@ -61,6 +61,10 @@ let setContentType =
   ok <<< Context.mapResponse <<< Response.mapHeaders
   <<< Headers.set "Content-Type" <<< Http.ContentType.show
 
+let setContentLength =
+  ok <<< Context.mapResponse <<< Response.mapHeaders
+  <<< Headers.set "Content-Length"
+
 let setStatus = ok <<< Context.mapResponse <<< Response.setStatus
 
 let setHeader key =
@@ -68,14 +72,29 @@ let setHeader key =
 
 let setHeaders = ok <<< Context.mapResponse <<< Response.setHeaders
 
-let text text =
-  setContentType `text >=> respondWith @@ Serializable.fromString text
+let option pipe option : t =
+  match option with
+  | None -> fun ctx -> sync @@ Some ctx
+  | Some x -> fun ctx -> pipe x ctx
 
-let status status =
-  setStatus status >=> respondWith @@ Serializable.fromStatus status
+let text text : t =
+  setContentType `text
+  >=> setContentLength (string_of_int @@ Js.String.length text)
+  >=> respondWith @@ Serializable.fromString text
 
-let json json =
-  setContentType `json >=> respondWith @@ Serializable.fromJson json
+let status status : t =
+  setStatus status
+  >=> option
+        (setContentLength <<< string_of_int)
+        (Serializable.length @@ Serializable.fromStatus status)
+  >=> respondWith @@ Serializable.fromStatus status
+
+let json json : t =
+  setContentType `json
+  >=> option
+        (setContentLength <<< string_of_int)
+        (Serializable.length @@ Serializable.fromJson json)
+  >=> respondWith @@ Serializable.fromJson json
 
 let namespace pathName : t =
  fun ctx ->
