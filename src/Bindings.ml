@@ -11,6 +11,7 @@ module Node = struct
     module Readable = struct
       type t
 
+      (* TODO: Use bindings instead of raw *)
       let consume : t -> string Js.Promise.t =
         [%raw
           {|

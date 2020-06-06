@@ -130,7 +130,7 @@ module Status = struct
     | `created -> "created"
     | `accepted -> "accepted"
     | `nonAuthoritativeInformation -> "non authoritative information"
-    | `noContent -> "no content"
+    | `noContent -> ""
     | `resetContent -> "reset content"
     | `partialContent -> "partial content"
     | `multiStatus -> "multi status"

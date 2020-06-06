@@ -5,12 +5,10 @@
   },
   "sources": [
     {
-      "dir": "src",
-      "subdirs": true
+      "dir": "src"
     },
     {
       "dir": "example",
-      "subdirs": true,
       "type": "dev"
     },
     {
