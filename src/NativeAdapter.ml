@@ -1,4 +1,23 @@
-type request = { headers : string Js.Dict.t; url : string }
+open Core.Infix
+
+type request = {
+  headers : string Js.Dict.t;
+  url : string;
+  verb : string; [@bs.as "method"]
+}
+
+let%private readVerb =
+  Js.String.toLowerCase >>> function
+  | "head" -> `head
+  | "options" -> `get
+  | "trace" -> `trace
+  | "connect" -> `connect
+  | "get" -> `get
+  | "post" -> `post
+  | "put" -> `put
+  | "delete" -> `delete
+  | "patch" -> `patch
+  | _ -> `get
 
 type response = { mutable statusCode : int; mutable statusMessage : string }
 
@@ -18,8 +37,8 @@ external listen' : t -> int -> unit = "listen" [@@bs.send]
 
 let listen f =
   let server =
-    createServer' @@ fun { headers; url } response ->
-    f (Request.make ~headers ~pathName:url ~url ())
+    createServer' @@ fun { headers; url; verb } response ->
+    f (Request.make ~headers ~pathName:url ~url ~verb:(readVerb verb) ())
     |> Js.Promise.then_ (fun ({ body; headers; status } : Response.t) ->
            (* Set status *)
            response.statusCode <- Http.Status.toCode status;

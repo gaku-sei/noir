@@ -13,7 +13,22 @@ module Status = struct
 end
 
 module ContentType = struct
-  type t = [ `json ]
+  type t = [ `json | `text ]
 
-  let show : t -> string = function `json -> "application/json"
+  let show : t -> string = function
+    | `json -> "application/json"
+    | `text -> "text/html"
+end
+
+module Verb = struct
+  type t =
+    [ `head
+    | `options
+    | `trace
+    | `connect
+    | `get
+    | `post
+    | `put
+    | `delete
+    | `patch ]
 end

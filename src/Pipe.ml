@@ -38,11 +38,24 @@ module Infix = struct
                  | Async promise -> promise) )
 end
 
+open Infix
+
 let sync ctx = Sync ctx
 
 let async ctx = Async ctx
 
 let ok f ctx = sync @@ Some (f ctx)
+
+let%private respondWith = ok <<< Context.mapResponse <<< Response.setBody
+
+let%private guard f : t = fun ctx -> sync @@ if f ctx then Some ctx else None
+
+let%private currentPathPart
+    ({ request = { pathName }; meta = { currentNamespace } } : Context.t) =
+  let from = Js.String.length currentNamespace + 1 in
+  let to_ = pathName |> Js.String.indexOfFrom "/" from in
+  Js.String.substring pathName ~from
+    ~to_:(if to_ < 0 then Js.String.length pathName else to_)
 
 let setContentType =
   ok <<< Context.mapResponse <<< Response.mapHeaders
@@ -55,16 +68,26 @@ let setHeader key =
 
 let setHeaders = ok <<< Context.mapResponse <<< Response.setHeaders
 
-let text body =
-  ok @@ Context.mapResponse @@ Response.setBody
-  @@ Some (Serializable.fromString body)
+let text text =
+  setContentType `text >=> respondWith @@ Serializable.fromString text
 
-let namespace pathName =
-  ok @@ Context.mapMeta @@ Meta.mapCurrentNamespace
-  @@ fun currentNamespace -> currentNamespace ^ "/" ^ pathName
+let status status =
+  setStatus status >=> respondWith @@ Serializable.fromStatus status
+
+let json json =
+  setContentType `json >=> respondWith @@ Serializable.fromJson json
+
+let namespace pathName ctx =
+  if currentPathPart ctx = pathName then
+    ( ok @@ Context.mapMeta @@ Meta.mapCurrentNamespace
+    @@ fun currentNamespace -> currentNamespace ^ "/" ^ pathName )
+      ctx
+  else sync None
+
+let capture f : t = fun ctx -> f (currentPathPart ctx) ctx
+
+let verb verb : t = guard (fun ctx -> ctx.request.verb = verb)
 
 let route pathName : t =
- fun ctx ->
-  if ctx.meta.currentNamespace ^ "/" ^ pathName = ctx.request.pathName then
-    sync @@ Some ctx
-  else sync None
+  guard (fun ctx ->
+      ctx.meta.currentNamespace ^ "/" ^ pathName = ctx.request.pathName)

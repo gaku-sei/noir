@@ -1,4 +1,5 @@
 type t = { meta : Meta.t; request : Request.t; response : Response.t }
+[@@bs.deriving accessors]
 
 let make ~request ~response = { meta = Meta.make (); request; response }
 
