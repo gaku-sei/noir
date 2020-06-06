@@ -12,6 +12,10 @@
       "dir": "example",
       "subdirs": true,
       "type": "dev"
+    },
+    {
+      "dir": "tests",
+      "type": "dev"
     }
   ],
   "package-specs": [
@@ -23,7 +27,7 @@
   "suffix": ".bs.js",
   "namespace": true,
   "bs-dependencies": [],
-  "bs-dev-dependencies": ["decco"],
+  "bs-dev-dependencies": ["decco", "@glennsl/bs-jest"],
   "ppx-flags": ["decco/ppx"],
   "refmt": 3,
   "warnings": {
