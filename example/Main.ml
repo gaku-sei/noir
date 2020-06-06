@@ -1,6 +1,8 @@
 open Util.Infix
 open Core
 
+type config = { db : string }
+
 type homePayload = { hello : string } [@@decco.encode]
 
 type payload = { name : string; age : int } [@@decco.decode]
@@ -37,4 +39,5 @@ let withPayload =
 
 let pipeline = home <|> noContent <|> something <|> hello <|> withPayload
 
-let () = run ~adapter:(module NativeAdapter) pipeline
+let () =
+  run ~adapter:(module NativeAdapter) ~config:{ db = "postgres" } pipeline

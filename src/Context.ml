@@ -1,7 +1,13 @@
-type t = { meta : Meta.t; request : Request.t; response : Response.t }
+type 'a t = {
+  mutable config : 'a;
+  meta : Meta.t;
+  request : Request.t;
+  response : Response.t;
+}
 [@@bs.deriving accessors]
 
-let make ~request ~response = { meta = Meta.make (); request; response }
+let make ~config ~request ~response =
+  { config; meta = Meta.make (); request; response }
 
 let mapMeta f ({ meta } as ctx) = { ctx with meta = f meta }
 
