@@ -1,11 +1,21 @@
-open Core.Infix
+type t =
+  | String of string
+  | Stream of Bindings.Node.Stream.Readable.t
+  | Buffer of Bindings.Node.Buffer.t
 
-type t = Serializable : 'a -> t [@@unboxed]
+let fromString string = String string
 
-let make x = Serializable x
+let fromReadableStream stream = Stream stream
 
-let fromString = make
+let fromBuffer buffer = Buffer buffer
 
-let fromStatus = fromString <<< Http.Status.toMessage
+let fromStatus status = fromString @@ Http.Status.toMessage status
 
-let fromJson = fromString <<< Js.Json.stringify
+let fromJson json = fromString @@ Js.Json.stringify json
+
+let toString = function
+  | String string -> Js.Promise.resolve string
+  | Stream stream -> Bindings.Node.Stream.Readable.consume stream
+  | Buffer buffer ->
+      Js.Promise.resolve
+      @@ Bindings.Node.Buffer.toStringWithEncoding buffer `utf8

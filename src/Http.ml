@@ -1,14 +1,16 @@
 module Status = struct
-  type t = [ `ok | `noContent | `notFound ]
+  type t = [ `ok | `noContent | `badRequest | `notFound ]
 
   let toCode : t -> int = function
     | `ok -> 200
     | `noContent -> 204
+    | `badRequest -> 400
     | `notFound -> 404
 
   let toMessage : t -> string = function
     | `ok -> "ok"
     | `noContent -> "no content"
+    | `badRequest -> "bad request"
     | `notFound -> "not found"
 end
 

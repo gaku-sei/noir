@@ -1,10 +1,13 @@
-open Core.Infix
+open Util.Infix
 
 type request = {
   headers : string Js.Dict.t;
   url : string;
   verb : string; [@bs.as "method"]
 }
+
+external requestToStream : request -> Bindings.Node.Stream.Readable.t
+  = "%identity"
 
 let%private readVerb =
   Js.String.toLowerCase >>> function
@@ -21,7 +24,8 @@ let%private readVerb =
 
 type response = { mutable statusCode : int; mutable statusMessage : string }
 
-external write : response -> Serializable.t -> unit = "write" [@@bs.send]
+(* Support streams and buffers  *)
+external write : response -> string -> unit = "write" [@@bs.send]
 
 external _end : response -> unit = "end" [@@bs.send]
 
@@ -37,8 +41,11 @@ external listen' : t -> int -> unit = "listen" [@@bs.send]
 
 let listen f =
   let server =
-    createServer' @@ fun { headers; url; verb } response ->
-    f (Request.make ~headers ~pathName:url ~url ~verb:(readVerb verb) ())
+    createServer' @@ fun ({ headers; url; verb } as request) response ->
+    f
+      (Request.make
+         ~body:(Serializable.fromReadableStream @@ requestToStream request)
+         ~headers ~pathName:url ~url ~verb:(readVerb verb) ())
     |> Js.Promise.then_ (fun ({ body; headers; status } : Response.t) ->
            (* Set status *)
            response.statusCode <- Http.Status.toCode status;
@@ -47,12 +54,14 @@ let listen f =
            headers |> Js.Dict.entries
            |> Js.Array.forEach (fun (key, value) ->
                   setHeader response key value);
-           (* Write response content *)
-           write response
+           (* FIXME: Should disambiguate strings, streams, and buffers *)
+           Serializable.toString
            @@ Belt.Option.getWithDefault body
-           @@ Serializable.fromStatus status;
-           (* End request *)
-           _end response;
+           @@ Serializable.fromStatus status)
+    |> Js.Promise.then_ (fun body ->
+           (* Write response content *)
+           write response body;
+           (* End request *) _end response;
            Js.Promise.resolve ())
     |> ignore
   in

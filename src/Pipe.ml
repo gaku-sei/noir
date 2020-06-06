@@ -1,4 +1,4 @@
-open Core.Infix
+open Util.Infix
 
 type kind = Sync of Context.t option | Async of Context.t Js.Promise.t
 
@@ -77,12 +77,35 @@ let status status =
 let json json =
   setContentType `json >=> respondWith @@ Serializable.fromJson json
 
-let namespace pathName ctx =
+let namespace pathName : t =
+ fun ctx ->
   if currentPathPart ctx = pathName then
     ( ok @@ Context.mapMeta @@ Meta.mapCurrentNamespace
     @@ fun currentNamespace -> currentNamespace ^ "/" ^ pathName )
       ctx
   else sync None
+
+let payload decode f : t =
+ fun ({ request = { body } } as ctx) ->
+  match body with
+  | None -> setStatus `badRequest ctx
+  | Some body ->
+      async
+        ( Serializable.toString body
+        |> Js.Promise.then_ (fun body ->
+               match decode body with
+               | Error errors ->
+                   Js.Promise.resolve
+                   @@ Context.mapResponse (Response.setStatus `badRequest)
+                   @@ Context.mapResponse (Response.setBody errors) ctx
+               | Ok payload -> (
+                   match f payload ctx with
+                   | Sync (Some ctx) -> Js.Promise.resolve ctx
+                   | Sync None -> Js.Promise.reject PipeError
+                   | Async promise -> promise ))
+        |> Js.Promise.catch (fun _ ->
+               Js.Promise.resolve
+               @@ Context.mapResponse (Response.setStatus `badRequest) ctx) )
 
 let capture f : t = fun ctx -> f (currentPathPart ctx) ctx
 
