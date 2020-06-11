@@ -7,7 +7,8 @@
     "build": "bsb -make-world",
     "clean": "bsb -clean-world",
     "test": "yarn clean && BISECT_ENABLE=yes yarn build && jest",
-    "test:coverage": "rimraf *.coverage && rimraf _coverage && yarn test && bisect-ppx-report html && serve _coverage"
+    "test:coverage": "rimraf *.coverage && rimraf _coverage && yarn test && bisect-ppx-report html && serve _coverage",
+    "example:start": "yarn build && node example/Main.bs.js"
   },
   "jest": {
     "setupFilesAfterEnv": [
