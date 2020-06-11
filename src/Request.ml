@@ -10,3 +10,5 @@ type t = {
 
 let make ?(headers = Js.Dict.empty ()) ?body ~pathName ~url ~verb () =
   { body; headers; pathName; url; verb }
+
+let empty = make ~pathName:"" ~url:"" ~verb:`get ()

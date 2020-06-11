@@ -15,7 +15,7 @@ let make ?onResolve ?onReject request =
   end : Adapter.Type )
 
 (** Fake run like function that takes a request and a pipeline and returns a promise of response *)
-let run request pipeline =
+let run ~config ~request ~pipeline =
   Js.Promise.make (fun ~resolve ~reject ->
       Core.run
         ~adapter:
@@ -23,4 +23,4 @@ let run request pipeline =
              ~onResolve:(fun response -> (resolve response [@bs]))
              ~onReject:(fun error -> (reject (PromiseException error) [@bs]))
              request)
-        ~config:() pipeline)
+        ~config pipeline)

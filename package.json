@@ -10,6 +10,7 @@
   },
   "jest": {
     "testMatch": [
+      "**/example/**/*_test.bs.js",
       "**/tests/**/*_test.bs.js"
     ]
   },

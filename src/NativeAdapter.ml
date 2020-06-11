@@ -1,5 +1,3 @@
-open Util.Infix
-
 type request = {
   headers : string Js.Dict.t;
   url : string;
@@ -9,8 +7,8 @@ type request = {
 external requestToStream : request -> Bindings.Node.Stream.Readable.t
   = "%identity"
 
-let%private readVerb =
-  Js.String.toLowerCase >>> function
+let%private readVerb verb =
+  verb |> Js.String.toLowerCase |> function
   | "head" -> `head
   | "options" -> `get
   | "trace" -> `trace
@@ -47,6 +45,8 @@ let listen f =
          ~body:(Serializable.fromStream @@ requestToStream request)
          ~headers ~pathName:url ~url ~verb:(readVerb verb) ())
     |> Js.Promise.then_ (fun ({ body; headers; status } : Response.t) ->
+           (* When reaching this point the status should be set, but it can be assumed as not found *)
+           let status = Belt.Option.getWithDefault status `notFound in
            (* Set status *)
            response.statusCode <- Http.Status.toCode status;
            response.statusMessage <- Http.Status.toMessage status;
