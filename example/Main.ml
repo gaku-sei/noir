@@ -2,4 +2,10 @@ open Core
 open Pipes
 
 let () =
-  run ~adapter:(module NativeAdapter) ~config:{ db = "postgres" } pipeline
+  run
+    ~adapter:
+      (NativeAdapter.make
+         ~onListen:(fun () ->
+           Js.log "Noir example started: http://localhost:3000")
+         ())
+    ~config:{ db = "postgres" } pipeline
