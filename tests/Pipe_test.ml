@@ -124,6 +124,71 @@ let () =
                   () );
             ]);
 
+      describe "resolveUrl" (fun () ->
+          testAllPipe "resolve url and set the ctx accordingly"
+            [
+              ( Request.empty,
+                ( resolveUrl ~secure:false >=> fun ctx ->
+                  ( text
+                  @@ Belt.Option.getWithDefault ctx.request.url "incorrect url"
+                  )
+                    ctx ),
+                Response.ok
+                  ~headers:
+                    (Js.Dict.fromList
+                       [
+                         ("Content-Length", "13"); ("Content-Type", "text/html");
+                       ])
+                  ~body:(Serializable.fromString "incorrect url")
+                  () );
+              ( Request.make ~pathName:"/foo" ~verb:`get (),
+                ( resolveUrl ~secure:false >=> fun ctx ->
+                  ( text
+                  @@ Belt.Option.getWithDefault ctx.request.url "incorrect url"
+                  )
+                    ctx ),
+                Response.ok
+                  ~headers:
+                    (Js.Dict.fromList
+                       [
+                         ("Content-Length", "13"); ("Content-Type", "text/html");
+                       ])
+                  ~body:(Serializable.fromString "incorrect url")
+                  () );
+              ( Request.make ~pathName:"/foo"
+                  ~headers:(Js.Dict.fromList [ ("host", "foobar.com") ])
+                  ~verb:`get (),
+                ( resolveUrl ~secure:false >=> fun ctx ->
+                  ( text
+                  @@ Belt.Option.getWithDefault ctx.request.url "incorrect url"
+                  )
+                    ctx ),
+                Response.ok
+                  ~headers:
+                    (Js.Dict.fromList
+                       [
+                         ("Content-Length", "21"); ("Content-Type", "text/html");
+                       ])
+                  ~body:(Serializable.fromString "http://foobar.com/foo")
+                  () );
+              ( Request.make ~pathName:"/foo"
+                  ~headers:(Js.Dict.fromList [ ("host", "foobar.com") ])
+                  ~verb:`get (),
+                ( resolveUrl ~secure:true >=> fun ctx ->
+                  ( text
+                  @@ Belt.Option.getWithDefault ctx.request.url "incorrect url"
+                  )
+                    ctx ),
+                Response.ok
+                  ~headers:
+                    (Js.Dict.fromList
+                       [
+                         ("Content-Length", "22"); ("Content-Type", "text/html");
+                       ])
+                  ~body:(Serializable.fromString "https://foobar.com/foo")
+                  () );
+            ]);
+
       describe "option" (fun () ->
           testAllPipe "execute pipe only if argument is some thing"
             [

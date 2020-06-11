@@ -104,6 +104,18 @@ let setCookie ?expires ?maxAge ?domain ?path ?(secure = false)
   | Some value when acc = "" -> key ^ "=" ^ value
   | Some value -> "; " ^ key ^ "=" ^ value
 
+let resolveUrl ?(secure = true)
+    ({ Context.request = { headers; pathName } } as ctx) =
+  let host = Headers.get "host" headers in
+  let protocol = if secure then "https://" else "http://" in
+  let url =
+    Belt.Option.map
+      (Belt.Option.flatMap host (fun host ->
+           Bindings.Node.Url.make pathName (protocol ^ host)))
+      Bindings.Node.Url.href
+  in
+  syncOk @@ (Context.mapRequest @@ Request.setUrl url) ctx
+
 let option pipe option =
   match option with
   | None -> fun ctx -> syncOk ctx
