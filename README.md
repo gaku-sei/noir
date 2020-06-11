@@ -71,3 +71,7 @@ let pipeline = home <|> hello;
 
 run(~adapter=(module NativeAdapter), pipeline);
 ```
+
+## Tests
+
+Tests can be ran using the `yarn test` command, and code coverage can be generated and served using `yarn test:coverage`. The coverage will be served on [http://localhost:5000](http://localhost:5000).
