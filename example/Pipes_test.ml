@@ -2,7 +2,7 @@ open Jest
 open Expect
 open! Operators
 open ExampleTestHelpers
-open Main
+open Pipes
 
 let fakeConfig = { db = "fake db" }
 

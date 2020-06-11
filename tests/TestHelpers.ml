@@ -17,3 +17,11 @@ let testAllPipe description tests =
              TestAdapter.run ~config:() ~request ~pipeline
              |> Js.Promise.then_ (fun response' ->
                     Js.Promise.resolve (expect response' = response))))
+
+module Skip = struct
+  let testPipe description _request _pipeline _response =
+    Skip.test description @@ fun _ -> expect true = false
+
+  let testAllPipe description _tests =
+    Skip.test description @@ fun _ -> expect true = false
+end

@@ -1,7 +1,7 @@
 open Jest
 open Expect
 open! Operators
-open TestHelpers
+open! TestHelpers
 open Core
 
 let () =
@@ -134,17 +134,17 @@ let () =
             ]);
 
       describe "json" (fun () ->
-          testAllPipe
+          Skip.testAllPipe
             "set the body, the content type, and the content length accordingly"
             []);
 
       describe "text" (fun () ->
-          testAllPipe
+          Skip.testAllPipe
             "set the body, the content type, and the content length accordingly"
             []);
 
       describe "status" (fun () ->
-          testAllPipe
+          Skip.testAllPipe
             "set the status code, the body, and the content length accordingly"
             []);
 
@@ -159,33 +159,33 @@ let () =
             ]);
 
       describe "payload" (fun () ->
-          testAllPipe
+          Skip.testAllPipe
             "return a 400 when decoder fails, and provide the decoded payload \
              if decoder passes"
             []);
 
       describe "capture" (fun () ->
-          testAllPipe "capture the current part of the url path" []);
+          Skip.testAllPipe "capture the current part of the url path" []);
 
       describe "verb" (fun () ->
-          testAllPipe "filter out requests which verb don't match expected verb"
-            []);
+          Skip.testAllPipe
+            "filter out requests which verb don't match expected verb" []);
 
       describe "route" (fun () ->
-          testAllPipe
+          Skip.testAllPipe
             "continue if current path part match, and there is no other path \
              part, shouldn't match otherwise"
             []);
 
       describe "Infix" (fun () ->
           describe "compose >=>" (fun () ->
-              testAllPipe
+              Skip.testAllPipe
                 "handle complex compositions of pipes (pipelines), notably \
                  namespaces and routes"
                 []);
 
           describe "alt <|>" (fun () ->
-              testAllPipe
+              Skip.testAllPipe
                 "handle complex alternatives of pipes (pipelines), notably \
                  namespaces and routes"
                 [])))
