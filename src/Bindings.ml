@@ -1,6 +1,15 @@
 module Node = struct
   include (Node : module type of Node with module Buffer := Node.Buffer)
 
+  module Url = struct
+    type t = { href : string } [@@bs.deriving accessors]
+
+    external make' : string -> string -> t = "URL"
+      [@@bs.module "url"] [@@bs.new]
+
+    let make pathName base = try Some (make' pathName base) with _ -> None
+  end
+
   module Buffer = struct
     include Node.Buffer
 
