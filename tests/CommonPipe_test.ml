@@ -240,17 +240,4 @@ let () =
           Skip.testAllPipe
             "continue if current path part match, and there is no other path \
              part, shouldn't match otherwise"
-            []);
-
-      describe "Infix" (fun () ->
-          describe "compose >=>" (fun () ->
-              Skip.testAllPipe
-                "handle complex compositions of pipes (pipelines), notably \
-                 namespaces and routes"
-                []);
-
-          describe "alt <|>" (fun () ->
-              Skip.testAllPipe
-                "handle complex alternatives of pipes (pipelines), notably \
-                 namespaces and routes"
-                [])))
+            []))

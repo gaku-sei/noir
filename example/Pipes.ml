@@ -1,4 +1,4 @@
-open Util.Infix
+open Util
 open Core
 
 type config = { db : string }
@@ -25,10 +25,13 @@ let home =
 
 let hello =
   route "hello"
-  >=> ( route "noir"
-      >=> setHeader "X-Powered-By" "Noir"
-      >=> text "Say hello to Noir!!"
-      <|> capture (text <<< ( ^ ) "Say hello to ") )
+  >=> choose
+        [
+          route "noir"
+          >=> setHeader "X-Powered-By" "Noir"
+          >=> text "Say hello to Noir!!";
+          capture (text <<< ( ^ ) "Say hello to ");
+        ]
 
 let noContent = route "no-content" >=> status `noContent
 
@@ -42,5 +45,5 @@ let withPayload =
           text @@ "Seems that " ^ name ^ " is " ^ string_of_int age
           ^ " years old")
 
-let pipeline : config Pipe.t =
-  home <|> noContent <|> something <|> hello <|> withPayload
+let pipeline : config Context.t -> config Context.t Pipe.t =
+  choose [ home; noContent; something; hello; withPayload ]
