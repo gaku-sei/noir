@@ -1,5 +1,5 @@
 type 'a t = {
-  mutable config : 'a;
+  config : 'a;
   meta : Meta.t;
   request : Request.t;
   response : Response.t;
