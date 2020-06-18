@@ -1,4 +1,4 @@
-open Util.Infix
+open Util
 open Core
 
 type config = { db : string }

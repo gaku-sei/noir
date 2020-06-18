@@ -189,12 +189,12 @@ let () =
                   () );
             ]);
 
-      describe "option" (fun () ->
+      describe "when_" (fun () ->
           testAllPipe "execute pipe only if argument is some thing"
             [
-              (Request.empty, option setStatus None, Response.notFound ());
+              (Request.empty, when_ None setStatus, Response.notFound ());
               ( Request.empty,
-                option setStatus @@ Some `noContent,
+                when_ (Some `noContent) setStatus,
                 Response.make ~status:`noContent () );
             ]);
 
@@ -242,15 +242,14 @@ let () =
              part, shouldn't match otherwise"
             []);
 
-      describe "Infix" (fun () ->
-          describe "compose >=>" (fun () ->
-              Skip.testAllPipe
-                "handle complex compositions of pipes (pipelines), notably \
-                 namespaces and routes"
-                []);
+      describe "compose >=>" (fun () ->
+          Skip.testAllPipe
+            "handle complex compositions of pipes (pipelines), notably \
+             namespaces and routes"
+            []);
 
-          describe "alt <|>" (fun () ->
-              Skip.testAllPipe
-                "handle complex alternatives of pipes (pipelines), notably \
-                 namespaces and routes"
-                [])))
+      describe "alt <|>" (fun () ->
+          Skip.testAllPipe
+            "handle complex alternatives of pipes (pipelines), notably \
+             namespaces and routes"
+            []))

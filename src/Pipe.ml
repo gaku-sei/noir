@@ -1,50 +1,57 @@
-type 'a kind =
-  | Sync of 'a Context.t option
-  | Async of 'a Context.t Js.Promise.t
+(**
+  Continue: The pipe is "valid", and should go on
+  Pass: The pipe's expectations are not met (wrong path, verb, etc...)
+  Finish: The pipe ends (most of the time because an error occured, wrong payload, etc...)
+ *)
+type 'a status =
+  | Continue of 'a Context.t
+  | Pass of 'a Context.t
+  | Finish of Response.t
+[@@bs.deriving accessors]
+
+(**
+  The kind of pipe: synchronous, or asynchronous
+ *)
+type 'a kind = Sync of 'a status | Async of 'a status Js.Promise.t
+[@@bs.deriving accessors]
 
 type 'a t = 'a Context.t -> 'a kind
+(**
+  The pipe type itself, takes a context and return a kind
+ *)
 
-exception PipeError
+let ( >=> ) : 'a. 'a t -> 'a t -> 'a t =
+ fun a b ctx ->
+  match a ctx with
+  | Sync (Continue ctx) -> b ctx
+  | (Sync (Pass _) as kind) | (Sync (Finish _) as kind) -> kind
+  | Async promise ->
+      async
+        ( promise
+        |> Js.Promise.then_ (fun status ->
+               match status with
+               | (Pass _ as status) | (Finish _ as status) ->
+                   Js.Promise.resolve status
+               | Continue ctx -> (
+                   match b ctx with
+                   | Sync status -> Js.Promise.resolve status
+                   | Async promise -> promise )) )
 
-module Infix = struct
-  let ( >=> ) a b ctx =
-    match a ctx with
-    | Sync (Some ctx) -> b ctx
-    | Sync None as none -> none
-    | Async promise ->
-        Async
-          ( promise
-          |> Js.Promise.then_ (fun ctx ->
-                 match b ctx with
-                 | Sync (Some ctx) -> Js.Promise.resolve ctx
-                 | Sync None -> Js.Promise.reject PipeError
-                 | Async promise -> promise) )
-
-  let ( <|> ) a b ctx =
-    match a ctx with
-    | Sync (Some _) as ok -> ok
-    | Sync None -> b ctx
-    | Async promise ->
-        Async
-          ( promise
-          |> Js.Promise.catch (fun _ ->
-                 match b ctx with
-                 | Sync (Some ctx) -> Js.Promise.resolve ctx
-                 | Sync None -> Js.Promise.reject PipeError
-                 | Async promise -> promise) )
-end
-
-open Infix
-
-let sync ctx = Sync ctx
-
-let syncOk ctx = Sync (Some ctx)
-
-let async ctx = Async ctx
-
-let ok f ctx = syncOk @@ f ctx
-
-let%private guard f ctx = sync @@ if f ctx then Some ctx else None
+let ( <|> ) : 'a. 'a t -> 'a t -> 'a t =
+ fun a b ctx ->
+  match a ctx with
+  | (Sync (Continue _) | Sync (Finish _)) as kind -> kind
+  | Sync (Pass ctx) -> b ctx
+  | Async promise ->
+      async
+        ( promise
+        |> Js.Promise.then_ (fun status ->
+               match status with
+               | (Continue _ | Finish _) as status -> Js.Promise.resolve status
+               | Pass ctx -> (
+                   match b ctx with
+                   | Sync status -> Js.Promise.resolve status
+                   | Async promise -> promise )) )
 
 let%private currentPathPart
     { Context.request = { pathName }; meta = { currentNamespace } } =
@@ -53,27 +60,45 @@ let%private currentPathPart
   Js.String.substring pathName ~from
     ~to_:(if to_ < 0 then Js.String.length pathName else to_)
 
-let setContentType contentType =
-  ok @@ Context.mapResponse @@ Response.mapHeaders @@ Headers.set "Content-Type"
-  @@ Http.ContentType.show contentType
+let setContentType : Http.ContentType.t -> 'a t =
+ fun contentType ctx ->
+  sync @@ continue
+  @@ Context.mapResponse
+       ( Response.mapHeaders @@ Headers.set "Content-Type"
+       @@ Http.ContentType.show contentType )
+       ctx
 
-let setContentLength contentLength =
-  if contentLength < 0 then syncOk
+let setContentLength : int -> 'a t =
+ fun contentLength ctx ->
+  sync @@ continue
+  @@
+  if contentLength < 0 then ctx
   else
-    ok @@ Context.mapResponse @@ Response.mapHeaders
-    @@ Headers.set "Content-Length"
-    @@ string_of_int contentLength
+    Context.mapResponse
+      ( Response.mapHeaders
+      @@ Headers.set "Content-Length"
+      @@ string_of_int contentLength )
+      ctx
 
-let setStatus status = ok @@ Context.mapResponse @@ Response.setStatus status
+let setStatus : Http.Status.t -> 'a t =
+ fun status ctx ->
+  sync @@ continue @@ Context.mapResponse (Response.setStatus status) ctx
 
-let setHeader key value =
-  if key = "" || value = "" then syncOk
-  else ok @@ Context.mapResponse @@ Response.mapHeaders @@ Headers.set key value
+let setHeader : string -> string -> 'a t =
+ fun key value ctx ->
+  sync @@ continue
+  @@
+  if key = "" || value = "" then ctx
+  else Context.mapResponse (Response.mapHeaders @@ Headers.set key value) ctx
 
-let setHeaders headers =
-  ok @@ Context.mapResponse @@ Response.setHeaders @@ Js.Dict.fromArray
-  @@ Js.Array.filter (fun (key, value) -> key <> "" && value <> "")
-  @@ Js.Dict.entries headers
+let setHeaders : string Js.Dict.t -> 'a t =
+ fun headers ctx ->
+  sync @@ continue
+  @@ Context.mapResponse
+       ( Response.setHeaders @@ Js.Dict.fromArray
+       @@ Js.Array.filter (fun (key, value) -> key <> "" && value <> "")
+       @@ Js.Dict.entries headers )
+       ctx
 
 let setCookie ?expires ?maxAge ?domain ?path ?(secure = false)
     ?(httpOnly = false) ?sameSite name content =
@@ -104,8 +129,8 @@ let setCookie ?expires ?maxAge ?domain ?path ?(secure = false)
   | Some value when acc = "" -> key ^ "=" ^ value
   | Some value -> "; " ^ key ^ "=" ^ value
 
-let resolveUrl ?(secure = true)
-    ({ Context.request = { headers; pathName } } as ctx) =
+let resolveUrl : 'a. ?secure:bool -> 'a t =
+ fun ?(secure = true) ({ Context.request = { headers; pathName } } as ctx) ->
   let host = Headers.get "host" headers in
   let protocol = if secure then "https://" else "http://" in
   let url =
@@ -114,24 +139,27 @@ let resolveUrl ?(secure = true)
            Bindings.Node.Url.make pathName (protocol ^ host)))
       Bindings.Node.Url.href
   in
-  syncOk @@ (Context.mapRequest @@ Request.setUrl url) ctx
+  sync @@ continue @@ Context.mapRequest (Request.setUrl url) ctx
 
-let option pipe option =
+let when_ : 'a 'b. 'b option -> ('b -> 'a t) -> 'a t =
+ fun option pipe ctx ->
   match option with
-  | None -> fun ctx -> syncOk ctx
-  | Some x -> fun ctx -> pipe x ctx
+  | None -> sync @@ continue ctx
+  | Some value -> pipe value ctx
 
-let%private handlePayload f decodedBody ctx =
+let%private handlePayload :
+              'a 'b. ('b -> 'a t) -> ('b, Serializable.t) result -> 'a t =
+ fun f decodedBody ctx ->
   match decodedBody with
   | Ok payload -> f payload ctx
   | Error errors ->
-      syncOk
-      @@ Context.mapResponse (Response.setStatus `badRequest)
-      @@ Context.mapResponse (Response.setBody errors) ctx
+      sync @@ finish @@ Response.make ~status:`badRequest ~body:errors ()
 
-let payload decode f ({ Context.request = { body } } as ctx) =
+let payload :
+      'a 'b. (string -> ('b, Serializable.t) result) -> ('b -> 'a t) -> 'a t =
+ fun decode f ({ Context.request = { body } } as ctx) ->
   match body with
-  | None -> setStatus `badRequest ctx
+  | None -> sync @@ finish @@ Response.make ~status:`badRequest ()
   | Some (String body) -> (handlePayload f @@ decode body) ctx
   | Some (Buffer body) ->
       ( handlePayload f @@ decode
@@ -143,39 +171,38 @@ let payload decode f ({ Context.request = { body } } as ctx) =
         |> Js.Promise.then_ (fun body ->
                match decode body with
                | Error errors ->
-                   Js.Promise.resolve
-                   @@ Context.mapResponse (Response.setStatus `badRequest)
-                   @@ Context.mapResponse (Response.setBody errors) ctx
+                   Js.Promise.resolve @@ finish
+                   @@ Response.make ~status:`badRequest ~body:errors ()
                | Ok payload -> (
                    match f payload ctx with
-                   | Sync (Some ctx) -> Js.Promise.resolve ctx
-                   | Sync None -> Js.Promise.reject PipeError
-                   | Async promise -> promise ))
-        |> Js.Promise.catch (fun _ ->
-               Js.Promise.resolve
-               @@ Context.mapResponse (Response.setStatus `badRequest) ctx) )
+                   | Sync kind -> Js.Promise.resolve kind
+                   | Async promise -> promise )) )
 
 (** Capture a path part and since it's a matching pipe it will set the status to ok *)
-let capture pipe ctx =
+let capture : 'a. (string -> 'a t) -> 'a t =
+ fun f ctx ->
   match currentPathPart ctx with
-  | "" -> syncOk ctx
-  | pathPart ->
-      ( pipe pathPart
-      >=> setStatus (Belt.Option.getWithDefault ctx.Context.response.status `ok)
-      )
-        ctx
+  | "" -> sync @@ pass ctx
+  | pathPart -> f pathPart ctx
 
-let verb verb = guard (fun ctx -> ctx.request.verb = verb)
+let verb : 'a. Http.Verb.t -> 'a t =
+ fun verb ctx ->
+  if ctx.request.verb = verb then sync @@ continue ctx else sync @@ pass ctx
 
-let route pathPart ctx =
-  if currentPathPart ctx = pathPart then
-    ( ok @@ Context.mapMeta @@ Meta.mapCurrentNamespace
-    @@ fun currentNamespace -> currentNamespace ^ "/" ^ pathPart )
-      ctx
-  else sync None
+let route : 'a. string -> 'a t =
+ fun pathPart ctx ->
+  if currentPathPart ctx <> pathPart then sync @@ pass ctx
+  else
+    sync @@ continue
+    @@ ( Context.mapMeta @@ Meta.mapCurrentNamespace
+       @@ fun currentNamespace -> currentNamespace ^ "/" ^ pathPart )
+         ctx
 
-let%private respondWith body =
-  ok @@ Context.mapResponse @@ Response.setBody body >=> fun ctx ->
+let%private respondWith : 'a. Serializable.t -> 'a t =
+ fun body ->
+  (fun ctx ->
+    sync @@ continue @@ Context.mapResponse (Response.setBody body) ctx)
+  >=> fun ctx ->
   setStatus (Belt.Option.getWithDefault ctx.Context.response.status `ok) ctx
 
 let text text =
@@ -185,13 +212,14 @@ let text text =
 
 let status status =
   setStatus status
-  >=> option setContentLength
+  >=> when_
         (Serializable.length @@ Serializable.fromStatus status)
+        setContentLength
   >=> respondWith @@ Serializable.fromStatus status
 
 let json json =
   setContentType `json
-  >=> option setContentLength (Serializable.length @@ Serializable.fromJson json)
+  >=> when_ (Serializable.length @@ Serializable.fromJson json) setContentLength
   >=> respondWith @@ Serializable.fromJson json
 
 let redirect url = setHeader "Location" url >=> setStatus `found
