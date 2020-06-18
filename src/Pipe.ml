@@ -1,6 +1,8 @@
 (**
   Continue: The pipe is "valid", and should go on
+
   Pass: The pipe's expectations are not met (wrong path, verb, etc...)
+
   Finish: The pipe ends (most of the time because an error occured, wrong payload, etc...)
  *)
 type 'a status =
@@ -9,16 +11,12 @@ type 'a status =
   | Finish of Response.t
 [@@bs.deriving accessors]
 
-(**
-  The kind of pipe: synchronous, or asynchronous
- *)
+(** The kind of pipe: synchronous, or asynchronous *)
 type 'a kind = Sync of 'a status | Async of 'a status Js.Promise.t
 [@@bs.deriving accessors]
 
 type 'a t = 'a Context.t -> 'a kind
-(**
-  The pipe type itself, takes a context and return a kind
- *)
+(** The pipe type itself, takes a context and return a kind *)
 
 let ( >=> ) : 'a. 'a t -> 'a t -> 'a t =
  fun a b ctx ->

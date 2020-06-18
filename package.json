@@ -8,6 +8,7 @@
     "clean": "bsb -clean-world",
     "test": "yarn clean && BISECT_ENABLE=yes yarn build && jest",
     "test:coverage": "rimraf *.coverage && rimraf _coverage && yarn test && bisect-ppx-report html && serve _coverage",
+    "doc": "rimraf docs && yarn clean && yarn build && ./scripts/generate-docs.sh && serve docs",
     "example:start": "yarn build && node example/Main.bs.js"
   },
   "jest": {
@@ -23,6 +24,7 @@
     "@glennsl/bs-jest": "^0.5.1",
     "bisect_ppx": "^2.4.1",
     "bs-platform": "^7.3.2",
+    "bsdoc": "6.0.2-alpha",
     "decco": "^1.2.1",
     "rimraf": "^3.0.2",
     "serve": "^11.3.2"

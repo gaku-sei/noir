@@ -6,3 +6,4 @@ node_modules
 .merlin
 **/*.coverage
 _coverage
+docs
