@@ -9,7 +9,7 @@ type payload = { name : string; age : int } [@@decco.decode]
 
 let decodeWith decoder =
   let tryParse string = try Js.Json.parseExn string with _ -> Js.Json.null in
-  tryParse >>> decoder >>> function
+  tryParse >> decoder >> function
   | Ok ok -> Ok ok
   | Error { Decco.message; path } ->
       Error
@@ -28,7 +28,7 @@ let hello =
   >=> ( route "noir"
       >=> setHeader "X-Powered-By" "Noir"
       >=> text "Say hello to Noir!!"
-      <|> capture (text <<< ( ^ ) "Say hello to ") )
+      <|> capture (text << ( ^ ) "Say hello to ") )
 
 let noContent = route "no-content" >=> status `noContent
 
