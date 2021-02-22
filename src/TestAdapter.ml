@@ -23,4 +23,4 @@ let run ~config ~request ~pipeline =
              ~onResolve:(fun response -> (resolve response [@bs]))
              ~onReject:(fun error -> (reject (PromiseException error) [@bs]))
              request)
-        ~config pipeline)
+        ~config ~pipeline)

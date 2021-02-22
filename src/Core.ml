@@ -1,6 +1,6 @@
 include Pipe
 
-let run ~adapter ~config pipeline =
+let run ~adapter ~config ~pipeline =
   let module Adapter = (val adapter : Adapter.Type) in
   Adapter.listen @@ fun request ->
   match

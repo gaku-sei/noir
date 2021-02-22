@@ -12,7 +12,7 @@ let testAllPipe description tests =
   ignore
   @@ Belt.List.mapWithIndex tests (fun index (request, pipeline, response) ->
          testPromise
-           (description ^ " - " ^ string_of_int (index + 1))
+           (description ^ " - " ^ Belt.Int.toString (index + 1))
            (fun () ->
              TestAdapter.run ~config:() ~request ~pipeline
              |> Js.Promise.then_ (fun response' ->

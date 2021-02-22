@@ -12,7 +12,7 @@
   },
   "jest": {
     "setupFilesAfterEnv": [
-      "bisect_ppx/src/runtime/bucklescript/jest.js"
+      "bisect_ppx/src/runtime/bucklescript/jest.bs.js"
     ],
     "testMatch": [
       "**/example/**/*_test.bs.js",
@@ -20,10 +20,10 @@
     ]
   },
   "devDependencies": {
-    "@glennsl/bs-jest": "^0.5.1",
-    "bisect_ppx": "^2.4.1",
-    "bs-platform": "^7.3.2",
-    "decco": "^1.2.1",
+    "@glennsl/bs-jest": "^0.6.0",
+    "bisect_ppx": "^2.6.0",
+    "bs-platform": "^9.0.1",
+    "decco": "^1.3.0",
     "rimraf": "^3.0.2",
     "serve": "^11.3.2"
   }
