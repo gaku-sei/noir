@@ -6,14 +6,10 @@
   "scripts": {
     "build": "bsb -make-world",
     "clean": "bsb -clean-world",
-    "test": "yarn clean && BISECT_ENABLE=yes yarn build && jest",
-    "test:coverage": "rimraf *.coverage && rimraf _coverage && yarn test && bisect-ppx-report html && serve _coverage",
+    "test": "yarn clean && yarn build && jest",
     "example:start": "yarn build && node example/Main.bs.js"
   },
   "jest": {
-    "setupFilesAfterEnv": [
-      "bisect_ppx/src/runtime/bucklescript/jest.bs.js"
-    ],
     "testMatch": [
       "**/example/**/*_test.bs.js",
       "**/tests/**/*_test.bs.js"
@@ -21,7 +17,6 @@
   },
   "devDependencies": {
     "@glennsl/bs-jest": "^0.6.0",
-    "bisect_ppx": "^2.6.0",
     "bs-platform": "^9.0.1",
     "decco": "^1.3.0",
     "rimraf": "^3.0.2",
