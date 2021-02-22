@@ -54,8 +54,8 @@ let make ?(host = "127.0.0.1") ?(port = 3000) ?onListen () =
              ~body:
                (Serializable.fromStream @@ requestToStream request)
                (* As stated here https://nodejs.org/api/http.html#http_message_url the native http(s) modules'
-                   requests (incoming message) will not compute the url by default, but it's pretty easy to add pipe
-                   for that if needed. Url is then always None *)
+                  requests (incoming message) will not compute the url by default, but it's pretty easy to add a pipe
+                  for that if needed. Url is then always None *)
              ~headers ~pathName ~verb:(readVerb verb) ())
         |> Js.Promise.then_ (fun ({ body; headers; status } : Response.t) ->
                (* When reaching this point the status should be set, but it can be assumed as not found *)

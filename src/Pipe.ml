@@ -37,6 +37,8 @@ let ( >=> ) : 'a. 'a t -> 'a t -> 'a t =
                    | Sync status -> Js.Promise.resolve status
                    | Async promise -> promise )) )
 
+let pipe = ( >=> )
+
 let ( <|> ) : 'a. 'a t -> 'a t -> 'a t =
  fun a b ctx ->
   match a ctx with
@@ -52,6 +54,18 @@ let ( <|> ) : 'a. 'a t -> 'a t -> 'a t =
                    match b ctx with
                    | Sync status -> Js.Promise.resolve status
                    | Async promise -> promise )) )
+
+let alt = ( <|> )
+
+let oneOf pipes =
+  match pipes with
+  (* No pipes have been provided, let's simply continue *)
+  | [||] -> fun ctx -> Sync (Continue ctx)
+  | [| pipe |] -> pipe
+  | [| pipe1; pipe2 |] -> pipe1 <|> pipe2
+  | pipes ->
+      let head, tail = (pipes.(0), Js.Array2.sliceFrom pipes 1) in
+      Js.Array2.reduce tail ( <|> ) head
 
 let%private currentPathPart
     { Context.request = { pathName }; meta = { currentNamespace } } =
@@ -77,7 +91,7 @@ let setContentLength : int -> 'a t =
     Context.mapResponse
       ( Response.mapHeaders
       @@ Headers.set "Content-Length"
-      @@ string_of_int contentLength )
+      @@ Belt.Int.toString contentLength )
       ctx
 
 let setStatus : Http.Status.t -> 'a t =
@@ -102,32 +116,34 @@ let setHeaders : string Js.Dict.t -> 'a t =
 
 let setCookie ?expires ?maxAge ?domain ?path ?(secure = false)
     ?(httpOnly = false) ?sameSite name content =
-  setHeader "Set-Cookie"
-  @@ Belt.List.reduce
-       [
-         (name, Some content);
-         ("Expires", Belt.Option.map expires Js.Date.toUTCString);
-         ("Max-Age", Belt.Option.map maxAge string_of_int);
-         ("Domain", domain);
-         ("Path", path);
-         ("Secure", if secure then Some "" else None);
-         ("HttpOnly", if httpOnly then Some "" else None);
-         ( "SameSite",
-           Belt.Option.map sameSite @@ function
-           | `strict -> "Strict"
-           | `lax -> "Lax"
-           | `none -> "None" );
-       ]
-       ""
-  @@ fun acc (key, value) ->
-  acc
-  ^
-  match value with
-  | None -> ""
-  | Some "" when acc = "" -> key
-  | Some "" -> "; " ^ key
-  | Some value when acc = "" -> key ^ "=" ^ value
-  | Some value -> "; " ^ key ^ "=" ^ value
+  let options =
+    [|
+      (name, Some content);
+      ("Expires", Belt.Option.map expires Js.Date.toUTCString);
+      ("Max-Age", Belt.Option.map maxAge Belt.Int.toString);
+      ("Domain", domain);
+      ("Path", path);
+      ("Secure", if secure then Some "" else None);
+      ("HttpOnly", if httpOnly then Some "" else None);
+      ( "SameSite",
+        Belt.Option.map sameSite @@ function
+        | `strict -> "Strict"
+        | `lax -> "Lax"
+        | `none -> "None" );
+    |]
+  in
+  let serializeOption acc (key, value) =
+    acc
+    ^
+    match value with
+    | None -> ""
+    | Some "" when acc = "" -> key
+    | Some "" -> "; " ^ key
+    | Some value when acc = "" -> key ^ "=" ^ value
+    | Some value -> "; " ^ key ^ "=" ^ value
+  in
+
+  setHeader "Set-Cookie" (Js.Array.reduce serializeOption "" options)
 
 let resolveUrl : 'a. ?secure:bool -> 'a t =
  fun ?(secure = true) ({ Context.request = { headers; pathName } } as ctx) ->
